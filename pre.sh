@@ -236,6 +236,7 @@ elif wget -q --method=HEAD http://${PROVISIONER}${param_httppath}/build/dists/${
 elif wget -q --method=HEAD http://${PROVISIONER}${param_httppath}/distro/dists/${param_ubuntuversion}/InRelease; then
     export param_mirror="http://${PROVISIONER}${param_httppath}/distro"
 fi
+
 if [ ! -z "${param_mirror}" ]; then
     export PKG_REPO_LIST=""
     if wget -q --method=HEAD ${param_mirror}/dists/${param_ubuntuversion}/main/binary-${param_arch}/Release; then
@@ -402,14 +403,14 @@ chmod 666 /dev/null
 if [[ $param_parttype == 'efi' ]]; then
     run "Installing Ubuntu ${param_ubuntuversion} (~10 min)" \
         "docker run -i --rm --privileged --name ubuntu-installer ${DOCKER_PROXY_ENV} -v $ROOTFS:/target/root ubuntu:${param_ubuntuversion} sh -c \
-        'if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" > /etc/apt/sources.list; fi && \
-        if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" >> /etc/apt/sources.list; fi && \
+        'if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" | cat - /etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
+        if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" | cat - /etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         apt update && \
         apt install -y debootstrap && \
         debootstrap --arch ${param_arch} ${param_ubuntuversion} /target/root ${param_mirror} && \
         if [ -z ${param_mirror} ]; then cp /etc/apt/sources.list /target/root/etc/apt/sources.list; fi && \
-        if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" > /target/root/etc/apt/sources.list; fi && \
-        if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" >> /target/root/etc/apt/sources.list; fi && \
+        if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" | cat - /target/root/etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
+        if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" | cat - /target/root/etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         mount --bind dev /target/root/dev && \
         mount -t proc proc /target/root/proc && \
         mount -t sysfs sysfs /target/root/sys && \
@@ -446,15 +447,14 @@ if [[ $param_parttype == 'efi' ]]; then
     export MOUNT_DURING_INSTALL="chmod a+rw /dev/null /dev/zero && mount ${BOOT_PARTITION} /boot/efi"
 else
     run "Installing Ubuntu ${param_ubuntuversion} (~10 min)" \
-        "docker run -i --rm --privileged --name ubuntu-installer ${DOCKER_PROXY_ENV} -v $ROOTFS:/target/root ubuntu:${param_ubuntuversion} sh -c \
-        'if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" > /etc/apt/sources.list; fi && \
-        if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" >> /etc/apt/sources.list; fi && \
+        'if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" | cat - /etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
+        if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" | cat - /etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         apt update && \
         apt install -y debootstrap && \
         debootstrap --arch ${param_arch} ${param_ubuntuversion} /target/root ${param_mirror} && \
         if [ -z ${param_mirror} ]; then cp /etc/apt/sources.list /target/root/etc/apt/sources.list; fi && \
-        if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" > /target/root/etc/apt/sources.list; fi && \
-        if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" >> /target/root/etc/apt/sources.list; fi && \
+        if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" | cat - /target/root/etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
+        if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" | cat - /target/root/etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         mount --bind dev /target/root/dev && \
         mount -t proc proc /target/root/proc && \
         mount -t sysfs sysfs /target/root/sys && \
