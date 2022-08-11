@@ -11,8 +11,7 @@ source /opt/bootstrap/functions
 
 
 # --- Add Packages
-ubuntu_bundles="openssh-server"
-ubuntu_packages="wget openssh-server"
+ubuntu_packages="wget binutils openssh-server"
 
 # --- List out any docker images you want pre-installed separated by spaces. ---
 pull_sysdockerimagelist=""
@@ -32,8 +31,6 @@ run "Installing Extra Packages on Ubuntu ${param_ubuntuversion}" \
         \"$(echo ${INLINE_PROXY} | sed "s#'#\\\\\"#g") export TERM=xterm-color && \
         export DEBIAN_FRONTEND=noninteractive && \
         ${MOUNT_DURING_INSTALL} && \
-        apt install -y tasksel && \
-        tasksel install ${ubuntu_bundles} && \
         apt install -y ${ubuntu_packages}\"'" \
     ${PROVISION_LOG}
 
