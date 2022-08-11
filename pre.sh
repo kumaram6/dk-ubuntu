@@ -447,6 +447,7 @@ if [[ $param_parttype == 'efi' ]]; then
     export MOUNT_DURING_INSTALL="chmod a+rw /dev/null /dev/zero && mount ${BOOT_PARTITION} /boot/efi"
 else
     run "Installing Ubuntu ${param_ubuntuversion} (~10 min)" \
+    	"docker run -i --rm --privileged --name ubuntu-installer ${DOCKER_PROXY_ENV} -v $ROOTFS:/target/root ubuntu:${param_ubuntuversion} sh -c \
         'if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" | cat - /etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" | cat - /etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         apt update && \
