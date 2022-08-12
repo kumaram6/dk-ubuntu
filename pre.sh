@@ -405,7 +405,7 @@ if [[ $param_parttype == 'efi' ]]; then
         if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" | cat - /etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         apt update && \
         apt install -y debootstrap && \
-        debootstrap --arch ${param_arch} ${param_ubuntuversion} /target/root ${param_mirror} && \
+        debootstrap --arch ${param_arch} ${param_ubuntuversion} /target/root && \
         if [ -z ${param_mirror} ]; then cp /etc/apt/sources.list /target/root/etc/apt/sources.list; fi && \
         if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" | cat - /target/root/etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" | cat - /target/root/etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
@@ -450,7 +450,7 @@ else
         if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" | cat - /etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         apt update && \
         apt install -y debootstrap && \
-        debootstrap --arch ${param_arch} ${param_ubuntuversion} /target/root ${param_mirror} && \
+        debootstrap --arch ${param_arch} ${param_ubuntuversion} /target/root && \
         if [ -z ${param_mirror} ]; then cp /etc/apt/sources.list /target/root/etc/apt/sources.list; fi && \
         if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" | cat - /target/root/etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
         if [ \"${PKG_REPO_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion} ${PKG_REPO_LIST}\" | cat - /target/root/etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
