@@ -221,11 +221,9 @@ if [[ $kernel_params == *"docker_login_pass="* ]]; then
 	export param_docker_login_pass="${tmp%% *}"
 fi
 
-if [[ $param_release == 'prod' ]]; then
-	export kernel_params="$param_kernparam" # ipv6.disable=1
-else
-	export kernel_params="$param_kernparam"
-fi
+# if [[ $param_release == 'prod' ]] && ; then
+# 	export param_kernparam="$param_kernparam" # ipv6.disable=1
+# fi
 
 MIRROR_STATUS=$(wget --method=HEAD http://${PROVISIONER}${param_httppath}/distro/ 2>&1 | grep "404 Not Found")
 if [[ $kernel_params == *"mirror="* ]]; then
