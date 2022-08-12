@@ -3,4 +3,4 @@
 # Copyright (C) 2019 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 
-kernel_arguments: diskencrypt=false release=dev ubuntuversion=focal arch=amd64 username=user password=user1234 mirror=http://@@HOST_IP@@/files/@@PROFILE_NAME@@/distro/
+kernel_arguments: diskencrypt=false release=dev ubuntuversion=jammy arch=amd64 username=user password=user1234 mirror=http://@@HOST_IP@@/files/@@PROFILE_NAME@@/distro/
