@@ -8,6 +8,7 @@ set -a
 #this is provided while using Utility OS
 source /opt/bootstrap/functions
 DISK_IMAGE_URL="https://af01p-png.devtools.intel.com/artifactory/hspe-edge-png-local/ubuntu-adlps/CI/20220609-0002/default/ubuntu-22.04-desktop-amd64-37-custom.img.xz"
+
 # --- Ubuntu Packages ---
 ubuntu_packages="net-tools"
 ubuntu_tasksel="" # standard
@@ -290,12 +291,12 @@ else
 	reboot
 fi
 
+
 echo "" 2>&1 | tee -a /dev/console
 echo "" 2>&1 | tee -a /dev/console
 echo "Installing on ${DRIVE}" 2>&1 | tee -a /dev/console
 echo "" 2>&1 | tee -a /dev/console
 echo "" 2>&1 | tee -a /dev/console
-
 
 if [ $(wget http://${PROVISIONER}:5557/v2/_catalog -O-) ] 2>/dev/null; then
     export REGISTRY_MIRROR="--registry-mirror=http://${PROVISIONER}:5557"
@@ -318,7 +319,7 @@ if [ ! -z "${param_docker_login_user}" ] && [ ! -z "${param_docker_login_pass}" 
     	"/tmp/provisioning.log"
 fi
 
-# --- Begin Ubuntu Install Process ---
+ # --- Begin Ubuntu Install Process ---
 run "Preparing Ubuntu ${param_ubuntuversion} installer" \
     "docker pull ubuntu:${param_ubuntuversion}" \
     "/tmp/provisioning.log"
