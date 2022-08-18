@@ -321,14 +321,15 @@ fi
 # --- Begin Ubuntu Install Process ---
 run "Preparing Ubuntu ${param_ubuntuversion} installer" \
     "docker pull ubuntu:${param_ubuntuversion}" \
-    "$TMP/provisioning.log"
+    "/tmp/provisioning.log"
 
 run "Installing Ubuntu ${param_ubuntuversion} (~10 min)" \
     "docker run -i --rm --privileged --name ubuntu-installer ${DOCKER_PROXY_ENV} ubuntu:${param_ubuntuversion} bash -c \
-    'apt update && \
+    'chmod 666 /dev/null && \
+	apt update && \
     apt install -y bmap-tools && \
-    chmod 666 /dev/null &&\
-    bmaptool copy --nobmap ${DISK_IMAGE_URL} ${DRIVE}'"
+    bmaptool copy --nobmap ${DISK_IMAGE_URL} ${DRIVE}'" \
+    "/tmp/provisioning.log"
 
 
 EFI_BOOT_NAME="Ubuntu OS"
