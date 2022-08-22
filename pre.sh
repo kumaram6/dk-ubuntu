@@ -329,6 +329,8 @@ run "Installing Ubuntu ${param_ubuntuversion} (~10 min)" \
     'chmod 666 /dev/null && \
 	apt update && \
     apt install -y bmap-tools && \
+	apt-get -y install python3-pip && \
+    pip3 install  pip-system-certs && \
     bmaptool copy --nobmap ${DISK_IMAGE_URL} ${DRIVE}'" \
     "/tmp/provisioning.log"
 
