@@ -7,7 +7,6 @@ set -a
 
 #this is provided while using Utility OS
 source /opt/bootstrap/functions
-DISK_IMAGE_URL="https://af01p-png.devtools.intel.com/artifactory/hspe-edge-png-local/ubuntu-adlps/CI/20220609-0002/default/ubuntu-22.04-desktop-amd64-37-custom.img.xz"
 
 # --- Ubuntu Packages ---
 ubuntu_packages="net-tools"
@@ -24,6 +23,12 @@ PROVISIONER=$1
 
 # --- Get kernel parameters ---
 kernel_params=$(cat /proc/cmdline)
+
+img_url=""
+if [[ $kernel_params == *" img_url="* ]]; then
+	tmp="${kernel_params##* img_url=}"
+	export img_url="${tmp%% *}"
+fi
 
 if [[ $kernel_params == *" noproxy="* ]]; then
 	tmp="${kernel_params##* noproxy=}"
@@ -331,7 +336,7 @@ run "Installing Ubuntu ${param_ubuntuversion} (~10 min)" \
     apt install -y bmap-tools && \
 	apt-get -y install python3-pip && \
     pip3 install  pip-system-certs && \
-    bmaptool copy --nobmap ${DISK_IMAGE_URL} ${DRIVE}'" \
+    bmaptool copy --nobmap ${img_url} ${DRIVE}'" \
     "/tmp/provisioning.log"
 
 
