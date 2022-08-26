@@ -340,7 +340,7 @@ run "Installing Ubuntu ${param_ubuntuversion} (~10 min)" \
     "/tmp/provisioning.log"
 
 
-EFI_BOOT_NAME="Ubuntu OS"
-run "EFI Boot Manager" \
-    "efibootmgr -c -d ${DRIVE} -p 1 -L \"${EFI_BOOT_NAME}\" -l '\\EFI\\ubuntu\\grubx64.efi'" \
-    "/tmp/provisioning.log"
+# EFI_BOOT_NAME="Ubuntu OS"
+# run "EFI Boot Manager" \
+#     "efibootmgr -c -d ${DRIVE} -p 1 -L \"${EFI_BOOT_NAME}\" -l '\\EFI\\ubuntu\\grubx64.efi'" \
+#     "/tmp/provisioning.log"
