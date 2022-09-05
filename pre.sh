@@ -340,9 +340,9 @@ run "Installing Ubuntu ${param_ubuntuversion} (~10 min)" \
     "/tmp/provisioning.log"
 
 run "Deleting mac address menu" \
-    "curl -d '{\"mac\":\"88:88:88:88:87:88\", \"operation\":\"delete\"}' -H \"Content-Type: application/json\" -X POST intel-NUC23.iind.intel.com:8081/hardwares" \
+    "curl -d '{\"mac\":\"88:88:88:88:87:88\", \"operation\":\"delete_flash_menu\"}' -H \"Content-Type: application/json\" -X POST intel-NUC23.iind.intel.com:8081/hardwares" \
     "/tmp/provisioning.log"
-	
+
 # EFI_BOOT_NAME="Ubuntu OS"
 # run "EFI Boot Manager" \
 #     "efibootmgr -c -d ${DRIVE} -p 1 -L \"${EFI_BOOT_NAME}\" -l '\\EFI\\ubuntu\\grubx64.efi'" \
