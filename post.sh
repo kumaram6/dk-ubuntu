@@ -64,6 +64,20 @@ if [ ! -z "${param_docker_login_user}" ] && [ ! -z "${param_docker_login_pass}" 
         "docker logout" \
         "/tmp/provisioning.log"
 fi
+
+if [ $freemem -lt 6291456 ]; then
+    run "Cleaning up" \
+        "killall dockerd &&
+        sleep 3 &&
+        swapoff $ROOTFS/swap &&
+        rm $ROOTFS/swap &&
+        while (! rm -fr $ROOTFS/tmp/ > /dev/null ); do sleep 2; done" \
+        "/tmp/provisioning.log"
+fi
+
+umount $BOOTFS &&
+umount $ROOTFS &&
+
 echo "cleanup done " 2>&1 | tee -a /dev/console
 
 # delete mac address menu 
