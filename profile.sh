@@ -8,6 +8,16 @@ set -a
 #this is provided while using Utility OS
 source /opt/bootstrap/functions
 
+ethdevice=$(ip route get 8.8.8.8 | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i-1)}');
+macaddr=$(cat /sys/class/net/$ethdevice/address);
+sut_ip_addr=$(ip route get 8.8.8.8 | grep -oE "src.*([0-9]{1,3})" | awk '{print $2}');
+flashing_handler_port="9000"
+echo -e "import requests\nmyurl = 'http://$param_httpserver:$flashing_handler_port/flashing-handler/send-flashing-log'\nwith open('/tmp/provisioning.log','rb') as filedata:\n\tgetdata = requests.post(myurl, files={'file': filedata})\n\tprint(getdata.text)">>send_log_file.py
+chmod 777 send_log_file.py
+update_flashing_status(){
+	run "reporting flashing status" "curl -d '{\"mac\":\"$macaddr\", \"status_key\":\"$1\", \"status_value\":\"$2\", \"completion_status\":\"$3 of total ~20 min\", \"msg\":\"$4\", \"log\":\"$5\"}' -H \"Content-Type: application/json\" -X POST $param_httpserver:$flashing_handler_port/flashing-handler/update-flashing-status" "/tmp/provisioning.log"
+}
+
 # --- Add Packages
 ubuntu_packages=""
 
