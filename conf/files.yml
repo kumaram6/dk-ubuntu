@@ -2,4 +2,4 @@ general_files:
   - url: https://af01p-png.devtools.intel.com/artifactory/hspe-edge-png-local/ubuntu-rplp/20230214-1421/default/ubuntu-22.04.1-desktop-amd64-327-custom.iso
     destination_file: ubuntu-22.04.1-desktop-amd64-327-custom.iso
     token: None
-    mount_iso_path: iso
+    mount_iso_path: iso/default
