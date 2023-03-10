@@ -1,8 +1,8 @@
 """
 Copyright: 2019-2023 Intel Corporation
-Author: Giridharan Rajendran <giridharan.rajendran@intel.com> [28 Feb 2023]
+Author: Amit Kumar <Amit2.kumar@intel.com> [10 Mar 2023]
 
-dynamic_drive_detection.py: Class to find the Drive dynamiccaly
+dynamic_drive_detection.py: Class to find the Drive dynamicaly
 """
 import os
 import re
