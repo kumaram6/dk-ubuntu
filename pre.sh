@@ -12,11 +12,47 @@ ethdevice=$(ip route get 8.8.8.8 | awk '{for(i=1;i<=NF;i++) if ($i=="src") print
 macaddr=$(cat /sys/class/net/$ethdevice/address);
 sut_ip_addr=$(ip route get 8.8.8.8 | grep -oE "src.*([0-9]{1,3})" | awk '{print $2}');
 flashing_handler_port="9000"
+dyn_profile_port="8580"
 echo -e "import requests\nmyurl = 'http://$param_httpserver:$flashing_handler_port/flashing-handler/send-flashing-log'\nwith open('/tmp/provisioning.log','rb') as filedata:\n\tgetdata = requests.post(myurl, files={'file': filedata})\n\tprint(getdata.text)">>send_log_file.py
 chmod 777 send_log_file.py
 update_flashing_status(){
 	run "reporting flashing status" "curl -d '{\"mac\":\"$macaddr\", \"status_key\":\"$1\", \"status_value\":\"$2\", \"completion_status\":\"$3 of total ~20 min\", \"msg\":\"$4\", \"log\":\"$5\"}' -H \"Content-Type: application/json\" -X POST $param_httpserver:$flashing_handler_port/flashing-handler/update-flashing-status" "/tmp/provisioning.log"
 }
+
+del_efi_entry(){
+  run "EFI Boot Manager - Delete $1" \
+      "efibootmgr -B -b $1" "$TMP/provisioning.log"
+
+}
+
+get_hex(){
+  is_avail=$(efibootmgr | grep "$1" | awk '{print $1}')
+
+  hex_val=$(echo "$is_avail" | sed s/Boot// | sed s/*//)
+  echo "$hex_val"
+}
+
+get_boot_order(){
+  boot_order=$(efibootmgr | grep BootOrder | awk '{print $2}')
+  echo "$boot_order"
+}
+
+change_boot_order(){
+  new=$(echo $1 | sed s/$3,//)
+  new_order=$( echo $new | sed s/$2/$2,$3/)
+  run "EFI Boot Manager - Change Boot Order $1" \
+      "efibootmgr -o $new_order" \
+      "$TMP/provisioning.log"
+}
+
+create_efi_entry(){
+  efi_boot_name="Ubuntu$(echo ${DRIVE##*/})"
+  run "EFI Boot Manager - Create" \
+        "efibootmgr -c -d ${DRIVE} -p 1 -L \"${efi_boot_name}\" -l '\\EFI\\centos\\grubx64.efi'" \
+        "$TMP/provisioning.log"
+}
+
+
 update_flashing_status "Enter to uos" "Done" "10%"
 log_link="http://${param_httpserver}/tftp/logs/${sut_ip_addr}.log"
 update_flashing_status "sut_ip" "${sut_ip_addr}" "11%" "Updating SUT IP: ${sut_ip_addr}" "${log_link}"
@@ -246,9 +282,16 @@ if [[ $kernel_params == *"docker_login_pass="* ]]; then
 	export param_docker_login_pass="${tmp%% *}"
 fi
 
+
 # if [[ $param_release == 'prod' ]] && ; then
 # 	export param_kernparam="$param_kernparam" # ipv6.disable=1
 # fi
+
+########### Download ISO ############
+# run "Downloading ISO image" "curl -d '{\"mac\":\"$macaddr\"}' -H \"Content-Type: application/json\" -X POST $param_httpserver:$dyn_profile_port/start_download" "/tmp/provisioning.log"
+
+###########   Mount ISO  ############
+# run "Mounting ISO image" "curl -d '{\"mac\":\"$macaddr\"}' -H \"Content-Type: application/json\" -X POST $param_httpserver:$dyn_profile_port/mount_iso" "/tmp/provisioning.log"
 
 MIRROR_STATUS=$(wget --method=HEAD http://${PROVISIONER}${param_httppath}/distro/ 2>&1 | grep "404 Not Found")
 if [[ $kernel_params == *"mirror="* ]]; then
@@ -294,25 +337,52 @@ export freemem=$(grep MemTotal /proc/meminfo | awk '{print $2}')
 
 
 # --- Detect HDD ---
-if [ -d /sys/block/nvme[0-9]n[0-9] ]; then
-	export DRIVE=$(echo /dev/`ls -l /sys/block/nvme* | grep -v usb | head -n1 | sed 's/^.*\(nvme[a-z0-1]\+\).*$/\1/'`);
-	export BOOT_PARTITION=${DRIVE}p1
-	export SWAP_PARTITION=${DRIVE}p2
-	export ROOT_PARTITION=${DRIVE}p3
-elif [ -d /sys/block/[vsh]da ]; then
-	export DRIVE=$(echo /dev/`ls -l /sys/block/[vsh]da | grep -v usb | head -n1 | sed 's/^.*\([vsh]d[a-z]\+\).*$/\1/'`);
-	export BOOT_PARTITION=${DRIVE}1
-	export SWAP_PARTITION=${DRIVE}2
-	export ROOT_PARTITION=${DRIVE}3
-elif [ -d /sys/block/mmcblk[0-9] ]; then
-	export DRIVE=$(echo /dev/`ls -l /sys/block/mmcblk[0-9] | grep -v usb | head -n1 | sed 's/^.*\(mmcblk[0-9]\+\).*$/\1/'`);
-	export BOOT_PARTITION=${DRIVE}p1
-	export SWAP_PARTITION=${DRIVE}p2
-	export ROOT_PARTITION=${DRIVE}p3
-else
-	echo "No supported drives found!" 2>&1 | tee -a /dev/console
-	sleep 300
-	reboot
+# if [ -d /sys/block/nvme[0-9]n[0-9] ]; then
+# 	export DRIVE=$(echo /dev/`ls -l /sys/block/nvme* | grep -v usb | head -n1 | sed 's/^.*\(nvme[a-z0-1]\+\).*$/\1/'`);
+# 	export BOOT_PARTITION=${DRIVE}p1
+# 	export SWAP_PARTITION=${DRIVE}p2
+# 	export ROOT_PARTITION=${DRIVE}p3
+# elif [ -d /sys/block/[vsh]da ]; then
+# 	export DRIVE=$(echo /dev/`ls -l /sys/block/[vsh]da | grep -v usb | head -n1 | sed 's/^.*\([vsh]d[a-z]\+\).*$/\1/'`);
+# 	export BOOT_PARTITION=${DRIVE}1
+# 	export SWAP_PARTITION=${DRIVE}2
+# 	export ROOT_PARTITION=${DRIVE}3
+# elif [ -d /sys/block/mmcblk[0-9] ]; then
+# 	export DRIVE=$(echo /dev/`ls -l /sys/block/mmcblk[0-9] | grep -v usb | head -n1 | sed 's/^.*\(mmcblk[0-9]\+\).*$/\1/'`);
+# 	export BOOT_PARTITION=${DRIVE}p1
+# 	export SWAP_PARTITION=${DRIVE}p2
+# 	export ROOT_PARTITION=${DRIVE}p3
+# else
+# 	echo "No supported drives found!" 2>&1 | tee -a /dev/console
+# 	sleep 300
+# 	reboot
+# fi
+
+run "Fetching the Driver Name to install OS" \
+        "docker run -i --rm --privileged -v /dev:/dev --name fetch-drive-info ${DOCKER_PROXY_ENV} ubuntu:${param_ubuntuversion} bash -c \
+        'chmod 666 /dev/null && \
+        apt update && \
+        apt-get -y install python3-pip && \
+        pip3 install  pip-system-certs && \
+        apt-get -y install sudo && \
+        apt-get -y install fdisk && \
+        apt-get -y install efibootmgr && \
+        apt-get -y install wget && \
+        apt install -y lshw && \
+        apt install -y curl && \
+        python3 -m pip install --force-reinstall star_fw==0+master -i https://ubit-artifactory-ba.intel.com/artifactory/api/pypi/star_pip_packages-ba-local/simple/ --extra-index-url https://pypi.org/simple/ --no-cache-dir && \
+        wget --header \"Authorization: token ${param_token}\" ${param_basebranch}/dynamic_drive_detection.py && \
+        python3 dynamic_drive_detection.py  --esp_host ${param_httpserver} --sut_mac ${macaddr} ${drive_arguments}'" \
+        "/tmp/provisioning.log"
+
+DRIVE=$(cat /tmp/provisioning.log| grep -o "Drive Name to be flashed.*" | awk '{print $NF}')
+
+if [ -z "$DRIVE" ]
+then
+    echo "Not able to detect drives " 2>&1 | tee -a /dev/console
+    update_flashing_status "ISO flashing" "Failed" "11%" "Not able to detect drives"
+    run "sending /tmp/provisiong.log to esp" "python3 send_log_file.py" "/tmp/provisioning.log"
+    exit 1
 fi
 
 export BOOTFS=/target/boot
@@ -512,6 +582,30 @@ else
 
     export MOUNT_DURING_INSTALL="chmod a+rw /dev/null /dev/zero && mount ${BOOT_PARTITION} /boot"
 fi
+
+# get Ubuntu Entry Hex,
+efi_boot_name="Ubuntu$(echo ${DRIVE##*/})"
+hex=$(get_hex Ubuntu)
+# if there Delete, else do Nothing
+if [ ! -z $hex ]; then
+    del_efi_entry $hex
+fi
+
+# get PXE hex
+pxe=$(get_hex PXEv4)
+
+# get boot order
+cur_order=$(get_boot_order)
+
+# create new Ubuntu
+create_efi_entry
+
+# get Ubuntu Hex
+hex=$(get_hex $efi_boot_name)
+
+# update Boot Order
+change_boot_order $cur_order $pxe $hex
+
 
 # --- Enabling Ubuntu boostrap items ---
 HOSTNAME="ubuntu-$(tr </dev/urandom -dc a-f0-9 | head -c10)"
