@@ -21,12 +21,21 @@ update_flashing_status(){
 # --- Add Packages
 ubuntu_packages=""
 
-img_url=""
-if [[ $kernel_params == *" img_url="* ]]; then
-	tmp="${kernel_params##* img_url=}"
-	export img_url="${tmp%% *}"
+# img_url=""
+# if [[ $kernel_params == *" img_url="* ]]; then
+# 	tmp="${kernel_params##* img_url=}"
+# 	export img_url="${tmp%% *}"
+# else
+# 	update_flashing_status "ISO image download" "Failed" "10%" "image url is empty"
+# 	run "sending /tmp/provisiong.log to esp" "python3 send_log_file.py" "/tmp/provisioning.log"
+# 	exit 1
+# fi
+platform_name=""
+if [[ $kernel_params == *" platform_name="* ]]; then
+	tmp="${kernel_params##* platform_name=}"
+	export platform_name="${tmp%% *}"
 else
-	update_flashing_status "ISO image download" "Failed" "10%" "image url is empty"
+	update_flashing_status "Ubuntu custom image creator config download" "Failed" "10%" "image url is empty"
 	run "sending /tmp/provisiong.log to esp" "python3 send_log_file.py" "/tmp/provisioning.log"
 	exit 1
 fi
@@ -60,9 +69,9 @@ else
 	drive_arguments=""
 fi
 
-run "Arguments for iso_image_flashing.py" "echo -e '\n img_url:${img_url} \n uuid:${uuid} \n storage_type:${storage_type}'" "/tmp/provisioning.log"
+run "Arguments for iso_image_flashing.py" "echo -e '\n platform:${platform_name} \n uuid:${uuid} \n storage_type:${storage_type}'" "/tmp/provisioning.log"
 
-# --- Install ubuntu kernel and Debian Packages ---
+# --- Install ubuntu Debian Packages ---
 run "Installing Debian Packages on Ubuntu ${param_ubuntuversion}" \
     "docker run -i --rm --privileged --name ubuntu-installer ${DOCKER_PROXY_ENV} -v /dev:/dev -v /sys/:/sys/ -v $ROOTFS:/target/root ubuntu:${param_ubuntuversion} sh -c \
     'if [ \"${PKG_REPO_SEC_LIST}\" != \"\" ]; then echo \"deb ${param_mirror} ${param_ubuntuversion}-security ${PKG_REPO_SEC_LIST}\" | cat - /etc/apt/sources.list > /tmp/out && mv /tmp/out /etc/apt/sources.list; fi && \
@@ -83,5 +92,5 @@ run "Installing Debian Packages on Ubuntu ${param_ubuntuversion}" \
     apt-get -y install curl && \
     apt install -y lshw && \
     wget --header \"Authorization: token ${param_token}\" ${profile_url}iso_image_flashing.py && \
-    python3 iso_image_flashing.py  --img_url ${img_url} --esp_host ${param_httpserver} --sut_mac ${macaddr} ${drive_arguments}'" \
+    python3 iso_image_flashing.py  --platform ${platform_name} --esp_host ${param_httpserver} --sut_mac ${macaddr} ${drive_arguments}'" \
     ${PROVISION_LOG}
