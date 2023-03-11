@@ -1,9 +1,8 @@
 """
 Copyright: 2019-2022 Intel Corporation
-Author: Amit Kumar <amit2.kumar@intel.com> [01 Dec 2022]
+Author: Amit Kumar <amit2.kumar@intel.com> [10 Mar 2023]
 
-disk_image_flashing: module detects drive name based on uuid or storage type and then it flashes
-                     disk image on detected drive
+iso_image_flashing: module to flash iso image.
 """
 
 # from iotg_utilities.os_utils.artifact.api_intf_artifact import ArtifactoryUtilsAPI
@@ -11,11 +10,13 @@ disk_image_flashing: module detects drive name based on uuid or storage type and
 from star_fw.framework_base.logger.api_intf_logger import LoggerAPI
 from star_fw.framework_base.star_decorator import StarDecorator
 from star_fw.framework_base.test_interface.api_intf_test_interface import TestInterfaceAPI
+from iotg_utilities.common_utils.strings import StringUtils
+from iotg_utilities.common_utils.generic import GenericUtils
 import argparse
 import sys
 import os
-# import requests
-# import json
+import requests
+import json
 
 class ISOFlashing:
     def __init__(self) -> None:
@@ -23,76 +24,51 @@ class ISOFlashing:
         self.parser = argparse.ArgumentParser(prog=str(sys.argv[0]))
         self.parser.add_argument('--platform', required=True,
                                     help='platform name e.g. rplp')
-        # self.parser.add_argument('--esp_host', required=True,
-        #                             help='ip address of esp server')
-        # self.parser.add_argument('--sut_mac', required=True,
-        #                             help='MAC address of SUT')
+        self.parser.add_argument('--esp_host', required=True,
+                                    help='ip address of esp server')
+        self.parser.add_argument('--sut_mac', required=True,
+                                    help='MAC address of SUT')
         self.args, _ = self.parser.parse_known_args()
 
-        self.github_token="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"
-        self.ubuntu_custom_image_creator_config = f"https://{self.github_token}@raw.githubusercontent.com/intel-innersource/os.linux.ubuntu.iot.utilities.custom-image-creator-config/main/config." + self.args.platform + ".json"
+        self.ubuntu_custom_image_creator_config_url = f"https://raw.githubusercontent.com/intel-innersource/os.linux.ubuntu.iot.utilities.custom-image-creator-config/main/config." + self.args.platform + ".json"
         self.test_interface_obj = TestInterfaceAPI(intf_type="local", os_name="linux")
-        # self.esp_host = self.args.esp_host
-        # self.flashing_handler_port = '9000'
-        # self.sut_mac_addr = self.args.sut_mac
+        self.esp_host = self.args.esp_host
+        self.flashing_handler_port = '9000'
+        self.sut_mac_addr = self.args.sut_mac
+        github_token = GenericUtils().get_github_token_enc()
+        self.github_token= = StringUtils.get_decrypted_string(github_token)
         
 
 
-    def download_custom_image_creator_config(self):
-        import requests
-        print(f"url: {self.ubuntu_custom_image_creator_config}")
+    def install_debian_packages(self):
+        """
+        This method installs debian packages
 
-        # response = requests.request("GET", self.ubuntu_custom_image_creator_config, verify=False)
-        
-        # # response data
-        # print(response.text)
-        # print(response)
-
-        import ssl
-        import urllib.request
-
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-
-        with urllib.request.urlopen(url_self.ubuntu_custom_image_creator_configstring, context=ctx) as f:
-            f.read(300)
-
-    def parse_custom_image_creator_config(self):
-        import json
-  
-        f = open(f"config.{self.args.platform}.json")
-        
-        data = json.load(f)
-        
-        pre_install_build_commands = data["variant"]["default"]["pre_install_build_cmds"]
-        debian_packages = data["variant"]["default"]["packages"]
-        print(pre_install_build_commands)
+        :param None:
+        :return int: 0 on successful execution and non zero on failure  
+        """
+        headers = {'Authorization': f'token {self.github_token}'}
+        response = requests.get(self.ubuntu_custom_image_creator_config_url,  headers=headers)
+        # print(response.json())
+        pre_install_build_cmds = response.json().get("variant").get("default").get("pre_install_build_cmds")
+        print(pre_install_build_cmds)
+        debian_packages = response.json().get("variant").get("default").get("packages")
         print(debian_packages)
-        
-        f.close()
 
-        # import subprocess
-        # cmd = ['apt install', '-y', 'software-properties-common']
-        # p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-        #                    stderr=subprocess.PIPE,
-        #                    stdin=subprocess.PIPE,
-        #                    shell=True)
-        # out, err = p.communicate()
-        # for line in out.decode('UTF-8').split('\n'):
-        #     print(line)
         StarDecorator.double_blocked_print('Executing pre install build commands', logger=self.log)
-        for cmd in pre_install_build_commands:
+        for build_cmd in pre_install_build_cmds:
+            cmd = f'LANG=C.UTF-8 chroot /target/root sh -c "{build_cmd}"'
             out = self.test_interface_obj.execute(cmd, timeout=10*60)
             if not out.get('status', False):
                 print(f'failed to execute cmd: {cmd}')
-        # StarDecorator.double_blocked_print('Installing Debian packages', logger=self.log)
-        # for package in debian_packages:
-        #     cmd = f'apt install -y {package}'
-        #     out = self.test_interface_obj.execute(cmd, timeout=10*60)
-        #     if not out.get('status', False):
-        #         print(f'failed to execute cmd: {cmd}')
+
         
+        StarDecorator.double_blocked_print('Installing Debian packages', logger=self.log)
+        for pkg in debian_packages:
+            cmd = f'LANG=C.UTF-8 chroot /target/root sh -c "apt install -y {pkg}"'
+            out = self.test_interface_obj.execute(cmd, timeout=10*60)
+            if not out.get('status', False):
+                print(f'failed to execute cmd: {cmd}')
 
 
     def update_flashing_status(self, status_key, status_value, completion_status, msg):
@@ -130,23 +106,6 @@ class ISOFlashing:
             return {'status': False, 'msg': f'failed to call rest API {url} with payload '\
                     f'{payload} and headers {headers}. Check if {url} is accessible or not. {e}'}
 
-    def install_kernel(self, target_boot_device: str) -> None:
-        """
-        This method installs kenel
-
-        :param target_boot_device: target device to be flashed '/dev/sdX'
-        :return int: 0 on successful execution and non zero on failure  
-        """
-        pass
-
-    def install_debian_packages(self, target_boot_device: str) -> None:
-        """
-        This method installs debian packages
-
-        :param target_boot_device: target device to be flashed '/dev/sdX'
-        :return int: 0 on successful execution and non zero on failure  
-        """
-        pass
         
     def flash(self):
         """
@@ -155,8 +114,8 @@ class ISOFlashing:
         :param None:
         :return None:
         """
-        pass
+        self.install_debian_packages()
 
 if __name__ == '__main__':
     obj = ISOFlashing()
-    obj.parse_custom_image_creator_config()
+    
