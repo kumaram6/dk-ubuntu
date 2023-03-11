@@ -282,16 +282,69 @@ if [[ $kernel_params == *"docker_login_pass="* ]]; then
 	export param_docker_login_pass="${tmp%% *}"
 fi
 
+# image url
+img_url=""
+if [[ $kernel_params == *" img_url="* ]]; then
+	tmp="${kernel_params##* img_url=}"
+	export img_url="${tmp%% *}"
+else
+    # Download and mount ISO
+    output=$(curl --location http://$param_httpserver:$dyn_profile_port/start_download --header 'Content-Type: application/json' --data "{\"mac\": \"${macaddr}\"  }")
+    output="${output//\}}"
+    if [[ $output == *"\"response\":"* ]]; then
+        tmp="${output##*\"response\":}"
+        tmp="${tmp//\"}"
+        echo "${tmp}"
+        if [[ $tmp == *".iso"* ]]; then
+            echo "ISO image download has started."
+        else
+            echo "ISO image download has failed."
+            exit 1
+        fi
+    else
+        echo "ISO image download has failed."
+        exit 1
+    fi
 
-# if [[ $param_release == 'prod' ]] && ; then
-# 	export param_kernparam="$param_kernparam" # ipv6.disable=1
-# fi
+    while :
+    do
+        echo "Checking Download status"
+        output=$(curl --location http://$param_httpserver:$dyn_profile_port/check_download --header 'Content-Type: application/json' --data "{\"img_url\": \"${img_url}\"  }")
+        output="${output//\}}"
+        if [[ $output == *"\"response\":"* ]]; then
+            tmp="${output##*\"response\":}"
+            tmp="${tmp//\"}"
+            echo "${tmp}"
 
-########### Download ISO ############
-# run "Downloading ISO image" "curl -d '{\"mac\":\"$macaddr\"}' -H \"Content-Type: application/json\" -X POST $param_httpserver:$dyn_profile_port/start_download" "/tmp/provisioning.log"
+            if [[ $tmp == *".iso"* ]]; then
+                echo "ISO image downloaded sucessfully."
+                echo "Mounting ISO"
+                output=$(curl --location http://$param_httpserver:$dyn_profile_port/mount_iso --header 'Content-Type: application/json' --data "{\"img_name\": \"${tmp}\"  }")
+                if [[ $output == *"\"msg\":"* ]]; then
+                    tmp="${output##*\"response\":}"
+                    tmp="${tmp//\"}"
+                    echo "${tmp}"
+                    if [[ $tmp == *"Mounted ISO"* ]]; then
+                        echo "Mounted ISO"
+                        break
+                    else
+                        echo "Failed to mount ISO"
+                        exit 1
+                    fi
+                else
+                    echo "Failed to mount ISO"
+                    exit 1
+                fi
+            fi
+        else
+            echo "ISO image download has failed."
+            exit 1
+        fi
+        sleep 5
+    done
+fi
 
-###########   Mount ISO  ############
-# run "Mounting ISO image" "curl -d '{\"mac\":\"$macaddr\"}' -H \"Content-Type: application/json\" -X POST $param_httpserver:$dyn_profile_port/mount_iso" "/tmp/provisioning.log"
+
 
 MIRROR_STATUS=$(wget --method=HEAD http://${PROVISIONER}${param_httppath}/distro/ 2>&1 | grep "404 Not Found")
 if [[ $kernel_params == *"mirror="* ]]; then
@@ -335,29 +388,7 @@ fi
 # --- Get free memory
 export freemem=$(grep MemTotal /proc/meminfo | awk '{print $2}')
 
-
-# --- Detect HDD ---
-# if [ -d /sys/block/nvme[0-9]n[0-9] ]; then
-# 	export DRIVE=$(echo /dev/`ls -l /sys/block/nvme* | grep -v usb | head -n1 | sed 's/^.*\(nvme[a-z0-1]\+\).*$/\1/'`);
-# 	export BOOT_PARTITION=${DRIVE}p1
-# 	export SWAP_PARTITION=${DRIVE}p2
-# 	export ROOT_PARTITION=${DRIVE}p3
-# elif [ -d /sys/block/[vsh]da ]; then
-# 	export DRIVE=$(echo /dev/`ls -l /sys/block/[vsh]da | grep -v usb | head -n1 | sed 's/^.*\([vsh]d[a-z]\+\).*$/\1/'`);
-# 	export BOOT_PARTITION=${DRIVE}1
-# 	export SWAP_PARTITION=${DRIVE}2
-# 	export ROOT_PARTITION=${DRIVE}3
-# elif [ -d /sys/block/mmcblk[0-9] ]; then
-# 	export DRIVE=$(echo /dev/`ls -l /sys/block/mmcblk[0-9] | grep -v usb | head -n1 | sed 's/^.*\(mmcblk[0-9]\+\).*$/\1/'`);
-# 	export BOOT_PARTITION=${DRIVE}p1
-# 	export SWAP_PARTITION=${DRIVE}p2
-# 	export ROOT_PARTITION=${DRIVE}p3
-# else
-# 	echo "No supported drives found!" 2>&1 | tee -a /dev/console
-# 	sleep 300
-# 	reboot
-# fi
-
+# Drive name detection
 run "Fetching the Driver Name to install OS" \
         "docker run -i --rm --privileged -v /dev:/dev --name fetch-drive-info ${DOCKER_PROXY_ENV} ubuntu:${param_ubuntuversion} bash -c \
         'chmod 666 /dev/null && \
@@ -535,10 +566,24 @@ if [[ $param_parttype == 'efi' ]]; then
         wget --header \"Authorization: token ${param_token}\" -O - ${param_basebranch}/files/etc/fstab | sed -e \"s#ROOT#UUID=${rootfs_partuuid}#g\" | sed -e \"s#BOOT#UUID=${bootfs_partuuid}                 /boot/efi       vfat    umask=0077        0       1#g\" | sed -e \"s#SWAP#UUID=${swapfs_partuuid}#g\" > $ROOTFS/etc/fstab" \
         "$TMP/provisioning.log"
 
-    # EFI_BOOT_NAME="Ubuntu OS"
-    # run "EFI Boot Manager" \
-    #     "efibootmgr -c -d ${DRIVE} -p 1 -L \"${EFI_BOOT_NAME}\" -l '\\EFI\\ubuntu\\grubx64.efi'" \
-    #     "$TMP/provisioning.log"
+    # get Ubuntu Entry Hex,
+    efi_boot_name="Ubuntu$(echo ${DRIVE##*/})"
+    hex=$(get_hex Ubuntu)
+    # if there Delete, else do Nothing
+    if [ ! -z $hex ]; then
+        del_efi_entry $hex
+    fi
+
+    # get PXE hex
+    pxe=$(get_hex PXEv4)
+    # get boot order
+    cur_order=$(get_boot_order)
+    # create new Ubuntu
+    create_efi_entry
+    # get Ubuntu Hex
+    hex=$(get_hex $efi_boot_name)
+    # update Boot Order
+    change_boot_order $cur_order $pxe $hex
 
     export MOUNT_DURING_INSTALL="chmod a+rw /dev/null /dev/zero && mount ${BOOT_PARTITION} /boot/efi"
 else
@@ -582,30 +627,6 @@ else
 
     export MOUNT_DURING_INSTALL="chmod a+rw /dev/null /dev/zero && mount ${BOOT_PARTITION} /boot"
 fi
-
-# get Ubuntu Entry Hex,
-efi_boot_name="Ubuntu$(echo ${DRIVE##*/})"
-hex=$(get_hex Ubuntu)
-# if there Delete, else do Nothing
-if [ ! -z $hex ]; then
-    del_efi_entry $hex
-fi
-
-# get PXE hex
-pxe=$(get_hex PXEv4)
-
-# get boot order
-cur_order=$(get_boot_order)
-
-# create new Ubuntu
-create_efi_entry
-
-# get Ubuntu Hex
-hex=$(get_hex $efi_boot_name)
-
-# update Boot Order
-change_boot_order $cur_order $pxe $hex
-
 
 # --- Enabling Ubuntu boostrap items ---
 HOSTNAME="ubuntu-$(tr </dev/urandom -dc a-f0-9 | head -c10)"
