@@ -10,6 +10,7 @@ ethdevice=$(ip route get 8.8.8.8 | awk '{for(i=1;i<=NF;i++) if ($i=="src") print
 macaddr=$(cat /sys/class/net/$ethdevice/address);
 
 flashing_handler_port="9000"
+dyn_profile_port="8580"
 update_flashing_status(){
 	run "reporting flashing status" "curl -d '{\"mac\":\"$macaddr\", \"status_key\":\"$1\", \"status_value\":\"$2\", \"completion_status\":\"$3 of total ~20 min\", \"msg\":\"$4\"}' -H \"Content-Type: application/json\" -X POST $param_httpserver:$flashing_handler_port/flashing-handler/update-flashing-status" "/tmp/provisioning.log"
 }
@@ -81,6 +82,47 @@ if [[ $kernel_params == *"proxysocks="* ]]; then
 
 	tmp_socks=$(echo ${param_proxysocks} | sed "s#http://##g" | sed "s#https://##g" | sed "s#/##g")
 	export SSH_PROXY_CMD="-o ProxyCommand='nc -x ${tmp_socks} %h %p'"
+fi
+
+# image url
+img_url=""
+if [[ $kernel_params == *" img_url="* ]]; then
+	tmp="${kernel_params##* img_url=}"
+	export img_url="${tmp%% *}"
+else
+	# unmount iso image
+	echo "Fetching image name"
+	output=$(curl --location http://$param_httpserver:$dyn_profile_port/check_download --header 'Content-Type: application/json' --data "{\"img_url\": \"${img_url}\"  }")
+	output="${output//\}}"
+	if [[ $output == *"\"response\":"* ]]; then
+		tmp="${output##*\"response\":}"
+		tmp="${tmp//\"}"
+		echo "${tmp}"
+
+		if [[ $tmp == *".iso"* ]]; then
+			echo "ISO image name fetched sucessfully."
+			echo "Un-mounting ISO"
+			output=$(curl --location http://$param_httpserver:$dyn_profile_port/unmount_iso --header 'Content-Type: application/json' --data "{\"img_name\": \"${tmp}\"  }")
+			if [[ $output == *"\"msg\":"* ]]; then
+				tmp="${output##*\"response\":}"
+				tmp="${tmp//\"}"
+				echo "${tmp}"
+				if [[ $tmp == *"Unmounted ISO"* ]]; then
+					echo "Unmounted ISO"
+					break
+				else
+					echo "Failed to unmount ISO"
+					exit 1
+				fi
+			else
+				echo "Failed to unmount ISO"
+				exit 1
+			fi
+		fi
+	else
+		echo "Failed to fetch iso image name."
+		exit 1
+	fi
 fi
 # --- Cleanup ---
 if [ ! -z "${param_docker_login_user}" ] && [ ! -z "${param_docker_login_pass}" ]; then
